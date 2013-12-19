@@ -1,13 +1,14 @@
-CC = cc
-DEPS = ip2cc.h
+CC = gcc
 OBJ = ip2cc.o test.o
 
-%.o: %.c $(DEPS)
+%.o: %.c
 	$(CC) -c -o $@ $<
 
-test: $(OBJ)
-	$(CC) -o $@ $^ -lcunit
+make_test: $(OBJ)
+	$(CC) -o test $^ -lcunit
+
+test: make_test
 	./test
 
 clean:
-	rm -f *.o test
+	rm -f test $(OBJ)
