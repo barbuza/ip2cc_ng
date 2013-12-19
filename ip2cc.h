@@ -1,34 +1,18 @@
-enum node_type {
-  nt_undefined = 0,
-  nt_subtree = 1,
-  nt_value = 2
-};
 
-struct node_s {
-  enum node_type type;
-  union {
-    char *value;
-    struct node_s *subtree;
-  } ref;
-};
+typedef struct ip2cc_node *ip2cc_tree_t;
 
-typedef struct node_s node_t;
+typedef unsigned char ip2cc_ip_t[4];
 
-typedef unsigned char ip_t[4];
+void ip2cc_free(ip2cc_tree_t);
 
+void ip2cc_parse_ip(const char *, ip2cc_ip_t);
 
-void free_tree(node_t *);
+ip2cc_tree_t ip2cc_make_tree();
 
-void parse_ip(const char *, ip_t);
+int ip2cc_add_ip(ip2cc_tree_t, const char *, const char *);
 
-void free_node(node_t *);
+char *ip2cc_lookup(ip2cc_tree_t, const char *);
 
-node_t *make_tree();
+void ip2cc_write_tree(ip2cc_tree_t, size_t, FILE *);
 
-void add_ip(node_t *, const char *, const char *);
-
-char *lookup(node_t *, const char *);
-
-void write_tree(node_t *, size_t, FILE *);
-
-void read_tree(node_t *, size_t, FILE *);
+void ip2cc_read_tree(ip2cc_tree_t, size_t, FILE *);
