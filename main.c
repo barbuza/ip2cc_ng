@@ -12,9 +12,9 @@ int main(int argc, const char * argv[])
   printf("store 10.0.0.1 foo\n");
   printf("store 127.0.0.1 bar\n");
   printf("store 192.168.0.1 spam\n");
-  ip2cc_add_ip(tree, "10.0.0.1", "foo");
-  ip2cc_add_ip(tree, "127.0.0.1", "bar");
-  ip2cc_add_ip(tree, "192.168.0.1", "spam");
+  ip2cc_store(tree, "10.0.0.1", "foo");
+  ip2cc_store(tree, "127.0.0.1", "bar");
+  ip2cc_store(tree, "192.168.0.1", "spam");
   printf("writing to %s\n", filename);
   FILE *fp = fopen(filename, "w");
   if (! fp) {

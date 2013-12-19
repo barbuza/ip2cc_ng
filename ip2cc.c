@@ -62,13 +62,17 @@ node_t *ip2cc_make_tree()
   return tree;
 }
 
-static int _add_ip(node_t *tree, ip_t ip, unsigned char step, const char *value)
+static int _store(node_t *tree, ip_t ip, unsigned char step, const char *value)
 {
   node_t *node = tree + ip[3 - step];
-  if (node->type == nt_value) {
-    return 1;
-  }
   if (! step) {
+    switch (node->type) {
+      case nt_value:
+        free(node->ref.value);
+        break;
+      default:
+        break;
+    }
     node->type = nt_value;
     size_t len = strlen(value);
     node->ref.value = malloc(len + 1);
@@ -79,15 +83,15 @@ static int _add_ip(node_t *tree, ip_t ip, unsigned char step, const char *value)
       node->type = nt_subtree;
       node->ref.subtree = ip2cc_make_tree();
     }
-    return _add_ip(node->ref.subtree, ip, step - 1, value);
+    return _store(node->ref.subtree, ip, step - 1, value);
   }
 }
 
-int ip2cc_add_ip(node_t *tree, const char *raw_ip, const char *value)
+int ip2cc_store(node_t *tree, const char *raw_ip, const char *value)
 {
   ip_t ip = {0};
   ip2cc_parse_ip(raw_ip, ip);
-  return _add_ip(tree, ip, 3, value);
+  return _store(tree, ip, 3, value);
 }
 
 static char *_lookup(node_t *tree, ip_t ip, int step)
@@ -173,20 +177,22 @@ static void dump_tree(node_t *tree, size_t value_len, size_t offset, char level,
   }
 }
 
-void ip2cc_write_tree(node_t *tree, size_t value_len, FILE *fp)
+size_t ip2cc_write_tree(node_t *tree, size_t value_len, FILE *fp)
 {
-  size_t data_size = tree_size(tree, value_len);
+  size_t data_size = tree_size(tree, value_len, 3);
   unsigned char *data = calloc(data_size, 1);
   dump_tree(tree, value_len, 0, 3, data);
   fwrite(data, 1, data_size, fp);
   free(data);
+  return data_size;
 }
 
-static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, unsigned char level, unsigned char *buf)
+static int _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, unsigned char level, unsigned char *buf)
 {
   node_t *node;
   size_t subtree_addr;
   unsigned char item_size;
+  int res;
   if (level) {
     item_size = value_len + 2;
   } else {
@@ -196,10 +202,6 @@ static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, 
     fseek(fp, offset + i * item_size, SEEK_SET);
     fread(buf, 1, item_size, fp);
     node = tree + i;
-    if (node->type != nt_undefined) {
-      printf("read error\n");
-      exit(2);
-    }
     if (level) {
       if (buf[0] == 0xff && buf[1] == 0xff) {
         if (buf[2] != 0) {
@@ -211,9 +213,15 @@ static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, 
         node->type = nt_subtree;
         node->ref.subtree = ip2cc_make_tree();
         subtree_addr = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
-        _read_tree(node->ref.subtree, value_len, fp, subtree_addr, level - 1, buf);
+        res = _read_tree(node->ref.subtree, value_len, fp, subtree_addr, level - 1, buf);
+        if (res) {
+          return res;
+        }
       }
     } else {
+      if (node->type != nt_undefined) {
+        return 1;
+      }
       if (buf[0]) {
         node->type = nt_value;
         node->ref.value = calloc(value_len + 1, 1);
@@ -221,12 +229,13 @@ static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, 
       }
     }
   }
+  return 0;
 }
 
-void ip2cc_read_tree(node_t *tree, size_t value_len, FILE *fp)
+int ip2cc_read_tree(node_t *tree, size_t value_len, FILE *fp)
 {
   unsigned char *buf = malloc(value_len + 2);
-  _read_tree(tree, value_len, fp, 0, 3, buf);
+  int res = _read_tree(tree, value_len, fp, 0, 3, buf);
   free(buf);
+  return res;
 }
-
