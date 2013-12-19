@@ -58,8 +58,7 @@ void ip2cc_free(node_t *tree)
 
 node_t *ip2cc_make_tree()
 {
-  node_t *tree = malloc(sizeof(node_t) * 256);
-  bzero(tree, sizeof(node_t) * 256);
+  node_t *tree = calloc(256, sizeof(node_t));
   return tree;
 }
 
@@ -169,8 +168,7 @@ static void dump_tree(node_t *tree, size_t value_len, size_t offset, char level,
 void ip2cc_write_tree(node_t *tree, size_t value_len, FILE *fp)
 {
   size_t data_size = tree_size(tree, value_len);
-  unsigned char *data = malloc(data_size);
-  bzero(data, data_size);
+  unsigned char *data = calloc(data_size, 1);
   dump_tree(tree, value_len, 0, 3, data);
   fwrite(data, 1, data_size, fp);
   free(data);
@@ -198,8 +196,7 @@ static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, 
       if (buf[0] == 0xff && buf[1] == 0xff) {
         if (buf[2] != 0) {
           node->type = nt_value;
-          node->ref.value = malloc(value_len + 1);
-          bzero(node->ref.value, value_len + 1);
+          node->ref.value = calloc(value_len + 1, 1);
           memcpy(node->ref.value, buf + 2, value_len);
         }
       } else {
@@ -211,8 +208,7 @@ static void _read_tree(node_t *tree, size_t value_len, FILE *fp, size_t offset, 
     } else {
       if (buf[0]) {
         node->type = nt_value;
-        node->ref.value = malloc(value_len + 1);
-        bzero(node->ref.value, value_len + 1);
+        node->ref.value = calloc(value_len + 1, 1);
         memcpy(node->ref.value, buf, value_len);
       }
     }
