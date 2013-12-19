@@ -109,22 +109,30 @@ char *ip2cc_lookup(node_t *tree, const char *raw_ip)
   return _lookup(tree, ip, 3);
 }
 
-static size_t tree_size(node_t *tree, size_t value_len)
+static size_t tree_size(node_t *tree, size_t value_len, unsigned char level)
 {
-  node_t node;
-  size_t len = 256 * (2 + value_len);
-  for (int i = 0; i < 256; i++) {
-    node = tree[i];
-    if (node.type == nt_subtree) {
-      len += tree_size(node.ref.subtree, value_len);
-    }
+  node_t *node;
+  size_t len = 0;
+  switch (level) {
+    case 0:
+      len = 256 * value_len;
+      break;
+    default:
+      len = 256 * (2 + value_len);
+      for (int i = 0; i < 256; i++) {
+        node = tree + i;
+        if (node->type == nt_subtree) {
+          len += tree_size(node->ref.subtree, value_len, level - 1);
+        }
+      }
+      break;
   }
   return len;
 }
 
 static void dump_tree(node_t *tree, size_t value_len, size_t offset, char level, unsigned char *data)
 {
-  node_t node;
+  node_t *node;
   unsigned char item_size;
   if (level) {
     item_size = 2 + value_len;
@@ -136,22 +144,22 @@ static void dump_tree(node_t *tree, size_t value_len, size_t offset, char level,
   size_t end = offset + header_size;
   size_t subtree_size;
   for (int i = 0; i < 256; i++) {
-    node = tree[i];
+    node = tree + i;
     write_to = data + offset + i * item_size;
     if (level) {
-      switch (node.type) {
+      switch (node->type) {
         case nt_value:
           *(write_to) = 0xff;
           *(write_to + 1) = 0xff;
-          memcpy(write_to + 2, node.ref.value, value_len);
+          memcpy(write_to + 2, node->ref.value, value_len);
           break;
         case nt_undefined:
           *(write_to) = 0xff;
           *(write_to + 1) = 0xff;
           break;
         case nt_subtree:
-          subtree_size = tree_size(node.ref.subtree, value_len);
-          dump_tree(node.ref.subtree, value_len, end, level - 1, data);
+          subtree_size = tree_size(node->ref.subtree, value_len, level - 1);
+          dump_tree(node->ref.subtree, value_len, end, level - 1, data);
           *(write_to) = (end & 0xff000000) >> 24;
           *(write_to + 1) = (end & 0xff0000) >> 16;
           *(write_to + 2) = (end & 0xff00) >> 8;
@@ -159,8 +167,8 @@ static void dump_tree(node_t *tree, size_t value_len, size_t offset, char level,
           end += subtree_size;
           break;
       }
-    } else if (node.type == nt_value) {
-      memcpy(write_to, node.ref.value, value_len);
+    } else if (node->type == nt_value) {
+      memcpy(write_to, node->ref.value, value_len);
     }
   }
 }
